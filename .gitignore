@@ -1,2 +1,4 @@
 .idea
-.venv
+venv
+dist
+mapify.egg-info
