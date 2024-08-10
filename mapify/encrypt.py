@@ -1,68 +1,30 @@
-from importlib import resources
-import toml
-import json
+from .functions import load_map, default_map
 
 
-def encrypt(input_text, used_map=None, multiple_lines=False):
-    data = _load_mapping(used_map)
+def encrypt(input_text: str, used_map: str = None, strip_input=True):
+
+    """
+    Used to encrypt an input based off a given map.\n
+    Returns the ciphertext (string).
+
+    :param input_text: Required
+    :param used_map:
+    :param strip_input:
+    """
+
+    data = load_map(used_map, True)
 
     encoded_data = ""
-    words = input_text.strip().split()
-
-    for i in range(len(words)):
-        word_code = data.get(words[i], None)
-        if word_code is not None:
-            encoded_data += word_code + " "
-        else:
-            for char in words[i]:
-                char_code = data.get(char, None)
-                if char_code is not None:
-                    encoded_data += char_code + " "
-                else:
-                    encoded_data += str(_default_map(char)) + " "
-
-        if i != len(words) - 1:
-            if multiple_lines:
-                encoded_data += "\n"
+    base = 0
+    while base < len(input_text.strip() if strip_input else input_text):
+        for i in range(len(input_text.strip() if strip_input else input_text), base, -1):
+            custom_code = data.get(input_text.strip()[base:i] if strip_input else input_text[base:i], None)
+            if custom_code is not None:
+                encoded_data += custom_code + " "
+                base = i
             else:
-                separator = data.get(" ", None)
-                if separator is not None:
-                    encoded_data += str(separator) + " "
-                else:
-                    encoded_data += _default_map(" ") + " "
+                default_code = default_map(input_text[base:i], True)
+                if default_code is not None:
+                    encoded_data += default_code + " "
+                    base = i
     return encoded_data.strip()
-
-
-def _load_mapping(used_map):
-    directed_map = used_map if used_map else 'default.toml'
-    if not (directed_map.endswith(".toml") or directed_map.endswith(".json")):
-        raise ValueError("Invalid file type. Please provide a .toml or .json file.")
-
-    try:
-        if used_map:
-            with open(directed_map) as f:
-                if directed_map.endswith(".toml"):
-                    data = toml.load(f)
-                elif directed_map.endswith(".json"):
-                    data = json.load(f)
-        else:
-            with resources.open_text('mapify', directed_map) as f:
-                if directed_map.endswith(".toml"):
-                    data = toml.load(f)
-                elif directed_map.endswith(".json"):
-                    data = json.load(f)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"The file '{directed_map}' was not found.")
-    except json.JSONDecodeError:
-        raise ValueError(f"The file '{directed_map}' could not be parsed as JSON.")
-    except toml.TomlDecodeError:
-        raise ValueError(f"The file '{directed_map}' could not be parsed as TOML.")
-    return {v: k for k, v in data.get('map', {}).items()}
-
-
-def _default_map(value):
-    with resources.open_text('mapify', 'default.toml') as f:
-        data = toml.load(f)
-        reversed_map = {v: k for k, v in data.get('map', {}).items()}
-        char_code = reversed_map.get(value, None)
-        return char_code if char_code is not None else "?"
